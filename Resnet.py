@@ -21,6 +21,24 @@ from keras.models import Model
 import tensorflow as tf
 from keras.callbacks import EarlyStopping
 import datetime as dt
+from tensorflow.python.keras.callbacks import TensorBoard
+from time import time
+
+## Main parameter
+'''
+sampling_rate
+num_classes
+num_channel
+band_passfilter
+normalization
+dropout
+
+임진영
+optimizer
+loss
+'''
+
+
 #################################  Step 1 : Load data ##############################
 ################################ PTB-XL 2018 data set ##############################
 
@@ -62,22 +80,25 @@ kk=Y.diagnostic_superclass
 
 
 #################################  Step 2 : Select class  ################################# 
-num_classes=4
+num_classes=5
 labels=list()
 No_labels=list()
 for i in range(1,len(kk)+1):
     label_act=np.zeros(num_classes)
       
     if kk[i]==['NORM']:
-        label_act=[1,0,0,0]
+        label_act=[1,0,0,0,0]
     elif kk[i]==['CD']:
-        label_act=[0,1,0,0]
+        label_act=[0,1,0,0,0]
 
     elif kk[i]==['STTC']:
-        label_act=[0,0,1,0]
+        label_act=[0,0,1,0,0]
 
     elif kk[i]==['MI']:
-        label_act=[0,0,0,1]
+        label_act=[0,0,0,1,0]
+        
+    elif kk[i]==['HYP']:
+        label_act=[0,0,0,0,1]
     else:
         No_labels.append(i-1)
    
@@ -139,7 +160,7 @@ filter_lowcut = 0.001
 filter_highcut = 50
 filter_order = 1
 
-filtered_ecg_measurements = bandpass_filter(New_X, lowcut=filter_lowcut, highcut=filter_highcut, signal_freq=signal_frequency, filter_order=filter_order)
+#filtered_ecg_measurements = bandpass_filter(New_X, lowcut=filter_lowcut, highcut=filter_highcut, signal_freq=signal_frequency, filter_order=filter_order)
 
 def feature_normalize(dataset):
 
@@ -147,11 +168,11 @@ def feature_normalize(dataset):
     sigma = np.std(dataset, axis=0)
     return (dataset - mu)/sigma
 
-filtered_ecg_measurements=feature_normalize(filtered_ecg_measurements)
+filtered_ecg_measurements=feature_normalize(New_X)
 
 #################################  Step 4 : Channel selection & shuffling data ################################# 
 channel=12 # channel 6 # channel 12
-if channel==1:
+if channel==3:
     filtered_ecg_measurements=filtered_ecg_measurements[:,:,0]
     filtered_ecg_measurements=filtered_ecg_measurements.reshape(filtered_ecg_measurements.shape[0],filtered_ecg_measurements.shape[1],1)
 else:
@@ -239,6 +260,11 @@ class_weight = {"buy": 0.75,
 model.fit(X_train, Y_train, epochs=10, batch_size=32, class_weight=class_weight)
 '''
 #######################################  Model 1: Resnet 50  ########################################
+## Dropout 정확하게 할것 0.5 / 0.2 / 0.8
+
+
+
+
 def initial_layer(x):
     #x = ZeroPadding1D(padding=3)(x)
     x = Conv1D(filters=128, kernel_size=5) (x)
@@ -301,9 +327,9 @@ layer3=Short_cutLayer(layer2,filter_value=128, kernel_value=1, iteration=4)
 layer4=Short_cutLayer(layer3,filter_value=256, kernel_value=1, iteration=6)
 layer5=Short_cutLayer(layer4,filter_value=512, kernel_value=1, iteration=3)
 x=GlobalAveragePooling1D()(layer5)
-x = Dropout(0.2)(x)
+x = Dropout(0.5)(x)
 
-output = Dense(4, activation='softmax')(x)
+output = Dense(num_classes, activation='softmax')(x)
 
 
 model = Model(inputs=inputs, outputs=output)
@@ -319,7 +345,7 @@ model.summary()
 date_time_obj=dt.datetime.now()
 
 
-model_save_folder='c://Deeplearning/ckpt/ptb-xl_'+str(date_time_obj)[:-13]+'_channel_'+str(channel)+'_class_'+str(num_classes)+'Nadam/'
+model_save_folder='c://Deeplearning/ckpt/ptb-xl_'+str(date_time_obj)[:-13]+'_channel_'+str(channel)+'_class_'+str(num_classes)+'DR_0.5'+'_Nadam/'
 if not os.path.exists(model_save_folder):
     os.mkdir(model_save_folder)
 else:
@@ -330,10 +356,20 @@ else:
 model_path=model_save_folder+'epoch_{epoch:02d}-val_acc_{val_acc:.4f}-val_loss_{val_loss:.4f}.h5'
 es = EarlyStopping(monitor='val_loss',patience=20)
 
-checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_loss', verbose=1, save_best_only=True)
-hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=50, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es])
+## For tensorboard monitoring
+tensorboard=TensorBoard(log_dir=model_save_folder+"{}".format(time()))
+
+checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=False)
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=50, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es,tensorboard])
+
+##
+
+#checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_loss', verbose=1, save_best_only=True)
+#hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=50, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es])
 
 np.save(model_save_folder+'hist.npy',hist)
 #################################  Step 8 : Deep learning Evaluation ################################# 
-
+## TO do list : Evaluation package ->  ROC, AUC ...  
 
