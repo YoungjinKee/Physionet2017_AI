@@ -32,8 +32,6 @@ num_channel
 band_passfilter
 normalization
 dropout
-
-임진영
 optimizer
 loss
 '''
@@ -171,8 +169,8 @@ def feature_normalize(dataset):
 filtered_ecg_measurements=feature_normalize(New_X)
 
 #################################  Step 4 : Channel selection & shuffling data ################################# 
-channel=12 # channel 6 # channel 12
-if channel==3:
+channel=3 # channel 6 # channel 12
+if channel==1:
     filtered_ecg_measurements=filtered_ecg_measurements[:,:,0]
     filtered_ecg_measurements=filtered_ecg_measurements.reshape(filtered_ecg_measurements.shape[0],filtered_ecg_measurements.shape[1],1)
 else:
