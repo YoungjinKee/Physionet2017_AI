@@ -153,12 +153,12 @@ def bandpass_filter(data, lowcut, highcut, signal_freq, filter_order):
         return y
     
 
-signal_frequency=500
+
 filter_lowcut = 0.001
 filter_highcut = 50
 filter_order = 1
 
-#filtered_ecg_measurements = bandpass_filter(New_X, lowcut=filter_lowcut, highcut=filter_highcut, signal_freq=signal_frequency, filter_order=filter_order)
+#filtered_ecg_measurements = bandpass_filter(New_X, lowcut=filter_lowcut, highcut=filter_highcut, signal_freq=sampling_rate, filter_order=filter_order)
 
 def feature_normalize(dataset):
 
@@ -357,7 +357,7 @@ es = EarlyStopping(monitor='val_loss',patience=20)
 ## For tensorboard monitoring
 tensorboard=TensorBoard(log_dir=model_save_folder+"{}".format(time()))
 
-checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=False)
+checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=True)
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=50, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es,tensorboard])
