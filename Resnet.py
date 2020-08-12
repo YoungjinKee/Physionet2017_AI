@@ -25,16 +25,22 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from time import time
 
 ## Main parameter
-'''
-sampling_rate
-num_classes
-num_channel
-band_passfilter
-normalization
-dropout
-optimizer
-loss
-'''
+
+sampling_rate=500
+num_classes=5
+channel=3
+
+band_passfilter=True
+normalization=True
+dropout_rate=0.5
+my_optimizer='Nadam'
+
+experiment_setting=("sampling_rate =",sampling_rate,"num_classes =",num_classes, "channel =",channel,"Band_passfilter =",band_passfilter,"Normalization =",normalization,"Dropout_rate =",dropout_rate,"Optimizer =",my_optimizer
+      )
+
+
+
+
 
 
 #################################  Step 1 : Load data ##############################
@@ -169,7 +175,7 @@ def feature_normalize(dataset):
 filtered_ecg_measurements=feature_normalize(New_X)
 
 #################################  Step 4 : Channel selection & shuffling data ################################# 
-channel=3 # channel 6 # channel 12
+#channel=3 # channel 6 # channel 12
 if channel==1:
     filtered_ecg_measurements=filtered_ecg_measurements[:,:,0]
     filtered_ecg_measurements=filtered_ecg_measurements.reshape(filtered_ecg_measurements.shape[0],filtered_ecg_measurements.shape[1],1)
@@ -325,7 +331,7 @@ layer3=Short_cutLayer(layer2,filter_value=128, kernel_value=1, iteration=4)
 layer4=Short_cutLayer(layer3,filter_value=256, kernel_value=1, iteration=6)
 layer5=Short_cutLayer(layer4,filter_value=512, kernel_value=1, iteration=3)
 x=GlobalAveragePooling1D()(layer5)
-x = Dropout(0.5)(x)
+x = Dropout(dropout_rate)(x)
 
 output = Dense(num_classes, activation='softmax')(x)
 
@@ -333,7 +339,7 @@ output = Dense(num_classes, activation='softmax')(x)
 model = Model(inputs=inputs, outputs=output)
 #model.compile(loss=categorical_focal_loss(gamma=2.0, alpha=0.25), optimizer='adam', metrics=['accuracy']) # -> focal_loss version
 #model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-model.compile(loss='categorical_crossentropy', optimizer='Nadam', metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=my_optimizer, metrics=['accuracy'])
 
 model.summary()
 
@@ -350,6 +356,11 @@ else:
     model_save_folder=model_save_folder+'v2/'
     
     os.mkdir(model_save_folder)
+
+text_file = open(model_save_folder+"Experiment_setting.txt", "w")
+text_file.write(experiment_setting)
+text_file.close()
+
 
 model_path=model_save_folder+'epoch_{epoch:02d}-val_acc_{val_acc:.4f}-val_loss_{val_loss:.4f}.h5'
 es = EarlyStopping(monitor='val_loss',patience=20)
@@ -370,4 +381,22 @@ with tf.Session() as sess:
 np.save(model_save_folder+'hist.npy',hist)
 #################################  Step 8 : Deep learning Evaluation ################################# 
 ## TO do list : Evaluation package ->  ROC, AUC ...  
+predictions=model.predict(X_test)
 
+from sklearn.metrics import classification_report
+
+def change(x):  #From boolean arrays to decimal arrays
+    answer = np.zeros((np.shape(x)[0]))
+    for i in range(np.shape(x)[0]):
+        max_value = max(x[i, :])
+        max_index = list(x[i, :]).index(max_value)
+        answer[i] = max_index
+    return answer.astype(np.int)
+
+text_file = open(model_save_folder+"report.txt", "w")
+text_file.write(classification_report(change(y_test),change(predictions), target_names=['Normal', 'CD', 'STTC','MI','HYP']))
+text_file.close()
+
+text_file = open(model_save_folder+"confusion_matrix.txt", "w")
+text_file.write(result=confusion_matrix(change(y_test), change(predictions)))
+text_file.close()
