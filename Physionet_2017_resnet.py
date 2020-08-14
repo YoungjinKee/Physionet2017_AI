@@ -27,7 +27,7 @@ from time import time
 ## Main parameter
 
 sampling_rate=500
-num_classes=5
+num_classes=4
 channel=1
 
 band_passfilter=True
@@ -45,99 +45,17 @@ experiment_setting=("sampling_rate =",sampling_rate,"num_classes =",num_classes,
 
 #################################  Step 1 : Load data ##############################
 ################################ PTB-XL 2018 data set ##############################
+path='c://Deeplearning/data/'
 
+X_data=np.load('c://Deeplearning/data/physionet_2017_X.npy')
+Y_data=np.load('c://Deeplearning/data/physionet_2017_Y.npy')
 
-## v1
-def load_raw_data(df, sampling_rate, path):
-    if sampling_rate == 100:
-        data = [wfdb.rdsamp(path+f) for f in df.filename_lr]
-    else:
-        data = [wfdb.rdsamp(path+f) for f in df.filename_hr]
-    data = np.array([signal for signal, meta in data])
-    return data
-
-path = 'C://Users/yjkee/Downloads/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/ptb-xl/'
-sampling_rate=500
-
-# load and convert annotation data
-Y = pd.read_csv(path+'ptbxl_database.csv', index_col='ecg_id')
-Y.scp_codes = Y.scp_codes.apply(lambda x: ast.literal_eval(x))
-
-# Load raw signal data
-X = load_raw_data(Y, sampling_rate, path)
-
-# Load scp_statements.csv for diagnostic aggregation
-agg_df = pd.read_csv(path+'scp_statements.csv', index_col=0)
-agg_df = agg_df[agg_df.diagnostic == 1]
-
-def aggregate_diagnostic(y_dic):
-    tmp = []
-    for key in y_dic.keys():
-        if key in agg_df.index:
-            tmp.append(agg_df.loc[key].diagnostic_class)
-    return list(set(tmp))
-
-# Apply diagnostic superclass
-Y['diagnostic_superclass'] = Y.scp_codes.apply(aggregate_diagnostic)
-
-kk=Y.diagnostic_superclass
-
-
+filtered_ecg_measurements=X_data.reshape(X_data.shape[0],X_data.shape[1],1)
+new_labels=Y_data
 #################################  Step 2 : Select class  ################################# 
-num_classes=5
-labels=list()
-No_labels=list()
-for i in range(1,len(kk)+1):
-    label_act=np.zeros(num_classes)
-      
-    if kk[i]==['NORM']:
-        label_act=[1,0,0,0,0]
-    elif kk[i]==['CD']:
-        label_act=[0,1,0,0,0]
 
-    elif kk[i]==['STTC']:
-        label_act=[0,0,1,0,0]
-
-    elif kk[i]==['MI']:
-        label_act=[0,0,0,1,0]
-        
-    elif kk[i]==['HYP']:
-        label_act=[0,0,0,0,1]
-    else:
-        No_labels.append(i-1)
-   
-    labels.append(label_act)
-
-    
-labels = np.array(labels)
-Nolabels=np.array(No_labels)
-
-new_labels=np.delete(labels,Nolabels,axis=0)
-New_X=np.delete(X,Nolabels,axis=0)
-'''
-from utils import utils
-
-datafolder = 'C://Users/yjkee/Downloads/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/'
-sampling_rate=500
-task='superdiagnostic'
-
-
-# Load PTB-XL data
-data, raw_labels = utils.load_dataset(datafolder, sampling_frequency)
-# Preprocess label data
-labels = utils.compute_label_aggregations(raw_labels, datafolder, task)
-# Select relevant data and convert to one-hot
-data, labels, Y, _ = utils.select_data(data, labels, task, min_samples=0, outputfolder=outputfolder)
-
-# 1-9 for training 
-X_train = data[labels.strat_fold < 10]
-y_train = Y[labels.strat_fold < 10]
-# 10 for validation
-X_val = data[labels.strat_fold == 10]
-y_val = Y[labels.strat_fold == 10]
-'''
 #################################  Step 3 : Data denoising  & normalization (option) ################################# 
-
+'''
 from scipy.signal import butter, lfilter
 from scipy import stats
 
@@ -194,7 +112,7 @@ def data_shuffling(input_data,y_label):
 filtered_ecg_measurements,new_labels=data_shuffling(filtered_ecg_measurements,new_labels)
 print(len(filtered_ecg_measurements))
 
-
+'''
 #################################  Step 5 : Data split ################################# 
 def train_test_split(input_dat,Y_label,portion):
     
@@ -339,6 +257,8 @@ output = Dense(num_classes, activation='softmax')(x)
 model = Model(inputs=inputs, outputs=output)
 #model.compile(loss=categorical_focal_loss(gamma=2.0, alpha=0.25), optimizer='adam', metrics=['accuracy']) # -> focal_loss version
 #model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+#model.load_weights('C:/Deeplearning/ckpt/physionet2017_2020-08-14 09_channel_1_class_4DR_0.5_Nadam/epoch_50-val_acc_0.8547-val_loss_0.4433.h5')
+
 model.compile(loss='categorical_crossentropy', optimizer=my_optimizer, metrics=['accuracy'])
 
 model.summary()
@@ -349,7 +269,7 @@ model.summary()
 date_time_obj=dt.datetime.now()
 
 
-model_save_folder='c://Deeplearning/ckpt/ptb-xl_'+str(date_time_obj)[:-13]+'_channel_'+str(channel)+'_class_'+str(num_classes)+'DR_0.5'+'_Nadam/'
+model_save_folder='c://Deeplearning/ckpt/physionet2017_'+str(date_time_obj)[:-13]+'_channel_'+str(channel)+'_class_'+str(num_classes)+'DR_0.5'+'_Nadam/'
 if not os.path.exists(model_save_folder):
     os.mkdir(model_save_folder)
 else:
@@ -365,7 +285,7 @@ text_file.close()
 model_path=model_save_folder+'epoch_{epoch:02d}-val_acc_{val_acc:.4f}-val_loss_{val_loss:.4f}.h5'
 es = EarlyStopping(monitor='val_loss',patience=20)
 checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=False)
-hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=50, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es])
+hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=10, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es])
 
 
 
@@ -398,7 +318,7 @@ def change(x):  #From boolean arrays to decimal arrays
     return answer.astype(np.int)
 
 text_file = open(model_save_folder+"report.txt", "w")
-text_file.write(classification_report(change(y_test),change(predictions), target_names=['Normal', 'CD', 'STTC','MI','HYP']))
+text_file.write(classification_report(change(y_test),change(predictions), target_names=['Normal', 'AF', 'Other','Noise']))
 text_file.close()
 
 text_file = open(model_save_folder+"confusion_matrix.txt", "w")
