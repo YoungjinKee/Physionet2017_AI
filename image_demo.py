@@ -5,7 +5,7 @@ import argparse
 import os
 
 import posenet
-
+import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=int, default=101)
@@ -13,7 +13,11 @@ parser.add_argument('--scale_factor', type=float, default=1.0)
 parser.add_argument('--notxt', action='store_true')
 parser.add_argument('--image_dir', type=str, default='./images')
 parser.add_argument('--output_dir', type=str, default='./output')
+parser.add_argument('--view', type=str, default='right')
+
 args = parser.parse_args()
+
+
 
 
 def main():
@@ -45,9 +49,19 @@ def main():
                 displacement_fwd_result.squeeze(axis=0),
                 displacement_bwd_result.squeeze(axis=0),
                 output_stride=output_stride,
-                max_pose_detections=10,
+                max_pose_detections=1,
                 min_pose_score=0.25)
+            
+            
+            view=args.view
 
+            #print(pose_scores.shape,keypoint_scores.shape,keypoint_coords.shape)
+            if view=='right':
+                pose_scores, keypoint_scores, keypoint_coords =pose_scores, keypoint_scores*[0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0],keypoint_coords 
+            else: 
+                pose_scores, keypoint_scores, keypoint_coords =pose_scores, keypoint_scores*[0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],keypoint_coords 
+            
+            #print(pose_scores,keypoint_scores.shape,keypoint_coords.shape)
             keypoint_coords *= output_scale
 
             if args.output_dir:
@@ -58,7 +72,7 @@ def main():
                 cv2.imwrite(os.path.join(args.output_dir, os.path.relpath(f, args.image_dir)), draw_image)
 
             if not args.notxt:
-                print()
+                #print("kkkkkkkkkkkkkkkkkkk")
                 print("Results for image: %s" % f)
                 for pi in range(len(pose_scores)):
                     if pose_scores[pi] == 0.:
@@ -66,8 +80,44 @@ def main():
                     print('Pose #%d, score = %f' % (pi, pose_scores[pi]))
                     for ki, (s, c) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
                         print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
+            
+            ### Select left or right view ###
+            if view=='right':
+
+                keypoint_neck = keypoint_coords[0,4,:]
+                keypoint_shoulder = keypoint_coords[0,6,:]
+            else:
+                keypoint_neck = keypoint_coords[0,5,:]
+                keypoint_shoulder = keypoint_coords[0,7,:]
+            print(keypoint_neck,keypoint_shoulder)
+            
+            ### calculate angles ###
+            angle = math.atan2(-keypoint_neck[0]+keypoint_shoulder[0], keypoint_neck[1]-keypoint_shoulder[1])
+            angle = ((angle*180)/math.pi)
+            print("angle = ",90-angle)
+
+            '''
+            ### calculate angles ###
+            angle = math.atan2(keypoint_neck[0]-keypoint_shoulder[0], keypoint_neck[1]-keypoint_shoulder[1])
+            angle = ((angle*180)/math.pi)
+            print("angle = ",angle+90)
+            '''
 
         print('Average FPS:', len(filenames) / (time.time() - start))
+
+
+
+'''
+def get_angle(int x1, int y1, int x2, int y2):
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+
+    double rad= math.atan2(dx, dy);
+    double degree = (rad*180)/math.pi ;
+
+return degree;
+'''
+
 
 
 if __name__ == "__main__":
