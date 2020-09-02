@@ -284,8 +284,8 @@ text_file.close()
 
 model_path=model_save_folder+'epoch_{epoch:02d}-val_acc_{val_acc:.4f}-val_loss_{val_loss:.4f}.h5'
 es = EarlyStopping(monitor='val_loss',patience=20)
-checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=False)
-hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=10, epochs=100, verbose=1, shuffle=True, callbacks=[checkpointer,es])
+checkpointer = ModelCheckpoint(filepath=model_path, monitor='val_acc', verbose=1, save_best_only=True)
+hist = model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=20, epochs=100, verbose=1, shuffle=False, callbacks=[checkpointer,es])
 
 
 
@@ -322,5 +322,5 @@ text_file.write(classification_report(change(y_test),change(predictions), target
 text_file.close()
 
 text_file = open(model_save_folder+"confusion_matrix.txt", "w")
-text_file.write(result=confusion_matrix(change(y_test), change(predictions)))
+text_file.write(confusion_matrix(change(y_test), change(predictions)))
 text_file.close()
